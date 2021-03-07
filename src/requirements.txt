@@ -1,3 +1,4 @@
 textblob
 web.py
 feedparser
+requests

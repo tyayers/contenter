@@ -1,0 +1,38 @@
+[
+    {
+        "company": "microsoft",
+        "github_stars": 942249,
+        "github_forks": 155297,
+        "reddit_subscribers": 66459
+    },
+    {
+        "company": "google",
+        "github_stars": 1025941,
+        "github_forks": 214031,
+        "reddit_subscribers": 20872
+    },
+    {
+        "company": "deutschebank",
+        "github_stars": 0,
+        "github_forks": 0,
+        "reddit_subscribers": 0
+    },
+    {
+        "company": "adobe",
+        "github_stars": 52586,
+        "github_forks": 12441,
+        "reddit_subscribers": 8912
+    },
+    {
+        "company": "salesforce",
+        "github_stars": 25518,
+        "github_forks": 4800,
+        "reddit_subscribers": 31543
+    },
+    {
+        "company": "aws",
+        "github_stars": 120051,
+        "github_forks": 34903,
+        "reddit_subscribers": 161327
+    }
+]
