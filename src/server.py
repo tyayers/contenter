@@ -6,6 +6,10 @@ import random
 import string
 import requests
 import time
+import datetime
+from datetime import date
+from google.oauth2 import service_account
+from google.cloud import bigquery
 
 urls = (
     '/news(.*)', 'news',
@@ -14,6 +18,22 @@ urls = (
 app = web.application(urls, globals())
 
 class news:
+  def Search(self, topic):
+    d = feedparser.parse('https://news.google.com/rss/search?q=' + topic + '?hl=en-US&gl=US&ceid=US:en')
+    count = 0
+    polarity = 0
+    subjectivity = 0
+
+    for x in d.entries:
+      count += 1
+      parts = TextBlob(x.title)
+      polarity += parts.sentiment.polarity
+      subjectivity += parts.sentiment.subjectivity
+    
+    polarity = polarity / count
+    subjectivity = subjectivity / count
+    return (count, polarity, subjectivity)
+
   def GET(self, name):
     articles = []
 
@@ -45,41 +65,77 @@ class github:
       {
         "name": "microsoft",
         "github": ["microsoft", "azure"],
-        "reddit": "azure"
+        "reddit": "azure",
+        "stock_symbol": "MSFT"
       },
       {
         "name": "google",
         "github": ["google", "kubernetes", "googlecloudplatform"],
-        "reddit": "googlecloud"
+        "reddit": "googlecloud",
+        "stock_symbol": "GOOG"
       }, 
       {
         "name": "deutschebank",
-        "reddit": ""
+        "reddit": "",
+        "stock_symbol": "DB"
       },
       {
         "name": "adobe", 
         "reddit": "adobe",
+        "stock_symbol": "ADBE"
       },
       {
         "name": "salesforce",
-        "reddit": "salesforce"
+        "reddit": "salesforce",
+        "stock_symbol": "CRM"
       },
       {
         "name": "aws",
-        "reddit": "aws"
+        "reddit": "aws",
+        "stock_symbol": "AMZN"
+      },
+      {
+        "name": "facebook",
+        "reddit": "facebook",
+        "stock_symbol": "FB"
+      },
+      {
+        "name": "ibm",
+        "github": ["ibm", "RedHatOfficial"],
+        "reddit": "ibm",
+        "stock_symbol": "IBM"
+      },
+      {
+        "name": "twitter",
+        "reddit": "twitter",
+        "stock_symbol": "TWTR"
+      },
+      {
+        "name": "siemens",
+        "stock_symbol": "SIE"
       }
     ]
     results = []
 
+    newsservice = news()
+
     for x in companies:
       if not "github" in x:
         x["github"] = [x["name"]]
+      
+      if not "reddit" in x:
+        x["reddit"] = x["name"]
 
       data = {
         "company": x["name"],
+        "date": str(date.today()),
         "github_stars": 0,
         "github_forks": 0,
-        "reddit_subscribers": 0
+        "reddit_subscribers": 0,
+        "news_stories": 0,
+        "news_polarity": 0,
+        "news_subjectivity": 0,
+        "stock_price": 0
       }
 
       for githubuser in x["github"]:
@@ -88,18 +144,44 @@ class github:
           for item in r.json()["items"]:
             data["github_stars"] += item["stargazers_count"]
             data["github_forks"] += item["forks"]
+        else:
+          print(r.json())
 
       if x["reddit"] != "":
         rurl = "https://www.reddit.com/r/" + x["reddit"] + "/about.json"
-        headers = {'sec-ch-ua': '"Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"', 'User-Agent': 'Mozilla/5.0'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url=rurl, headers=headers)
         if "data" in r.json():
           data["reddit_subscribers"] = r.json()["data"]["subscribers"]
 
-      results.append(data)
-      #time.sleep(1)
+      newsdata = newsservice.Search(x["name"])
+      data["news_stories"] = newsdata[0]
+      data["news_polarity"] = round(newsdata[1], 6)
+      data["news_subjectivity"] = round(newsdata[2], 6)
 
+      if x["stock_symbol"] != "":
+        r = requests.get(url='https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=' + x["stock_symbol"] + '&apikey=FNT06P1FPP3XUTCW')
+        if "Time Series (Daily)" in r.json():
+          key = list(r.json()["Time Series (Daily)"].keys())[0]
+          data["stock_price"] = float(r.json()["Time Series (Daily)"][key]["4. close"])
+        else:
+          print(r.json())
+
+      results.append(data)
+      time.sleep(21)
+
+    self.saveToBigQuery(results)
     return json.dumps(results)
+
+  def saveToBigQuery(self, data):
+    credentials = service_account.Credentials.from_service_account_file('./svc-account.json')
+    client = bigquery.Client(credentials=credentials)
+
+    errors = client.insert_rows_json("bruno-1407a.contenter.companies", data)
+    if errors == []:
+        print("New rows have been added.")
+    else:
+        print("Encountered errors while inserting rows: {}".format(errors))
 
   # def get_new_token():
 
